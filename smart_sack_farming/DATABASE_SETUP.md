@@ -1,219 +1,150 @@
-# Smart Sack Farming - Complete Database Setup
+# Smart Sack Farming - Database Setup Guide
 
-## Step 1: Create Users Profile Table
+## Prerequisites
 
-Paste this in Supabase SQL Editor and click **Run**:
+- A [Supabase](https://supabase.com) account (free tier works)
+- Your Flutter project configured with `supabase_flutter` package
 
-```sql
--- Create users profile table (stores additional user info)
-CREATE TABLE users (
-  id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
-  email VARCHAR NOT NULL UNIQUE,
-  full_name VARCHAR,
-  role VARCHAR NOT NULL DEFAULT 'farmer', -- 'farmer' or 'admin'
-  phone VARCHAR,
-  address VARCHAR,
-  created_at TIMESTAMP DEFAULT NOW(),
-  updated_at TIMESTAMP DEFAULT NOW()
-);
+---
 
--- Enable RLS
-ALTER TABLE users ENABLE ROW LEVEL SECURITY;
+## Step 1: Create a Supabase Project
 
--- RLS Policy: Users can view/update their own profile
-CREATE POLICY "Users can view own profile" ON users
-  FOR SELECT USING (auth.uid() = id);
+1. Go to [supabase.com](https://supabase.com) and sign in (GitHub login recommended)
+2. Click **New Project**
+3. Name it `smart-sack-farming`
+4. Set a strong database password (save it somewhere safe)
+5. Choose your preferred region
+6. Wait 2-5 minutes for provisioning
 
-CREATE POLICY "Users can update own profile" ON users
-  FOR UPDATE USING (auth.uid() = id);
+---
 
-CREATE POLICY "Users can insert own profile" ON users
-  FOR INSERT WITH CHECK (auth.uid() = id);
+## Step 2: Run the Database Schema
+
+1. In your Supabase dashboard, go to **SQL Editor** → **New Query**
+2. Open the file `supabase_schema.sql` from this project
+3. Copy the **entire** contents and paste into the SQL Editor
+4. Click **Run**
+
+This single script creates everything:
+
+| Table                | Purpose                                   |
+|----------------------|-------------------------------------------|
+| `profiles`           | User profiles (auto-created on signup)    |
+| `farming_projects`   | Crop farming projects per user            |
+| `expenses`           | Expenses linked to farming projects       |
+| `equipment`          | Equipment rental marketplace              |
+| `calamity_reports`   | Disaster/calamity damage reports          |
+| `production_reports` | Harvest yield and quality reports         |
+
+Plus:
+- **Row Level Security (RLS)** on all tables
+- **Auto-create profile** trigger on user signup
+- **Auto-update `updated_at`** triggers on all tables
+- **Storage bucket** (`farm-images`) for image uploads
+
+---
+
+## Step 3: Get Your API Credentials
+
+1. Go to **Settings → API** in the Supabase dashboard
+2. Copy your **Project URL** (e.g., `https://abcdefg.supabase.co`)
+3. Copy your **Anon/Public Key**
+
+---
+
+## Step 4: Configure the Flutter App
+
+Update `lib/config/supabase_config.dart`:
+
+```dart
+const String SUPABASE_URL = 'https://YOUR-PROJECT-ID.supabase.co';
+const String SUPABASE_ANON_KEY = 'your-anon-key-here';
 ```
 
-## Step 2: Create Farming Projects & Expenses Tables
+---
 
-Paste this and click **Run**:
+## Step 5: Run the App
 
-```sql
--- Farming projects table
-CREATE TABLE farming_projects (
-  id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
-  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  crop_type VARCHAR NOT NULL,
-  area NUMERIC NOT NULL,
-  planting_date TIMESTAMP NOT NULL,
-  harvest_date TIMESTAMP NOT NULL,
-  revenue NUMERIC DEFAULT 0,
-  status VARCHAR DEFAULT 'active',
-  created_date TIMESTAMP DEFAULT NOW(),
-  created_at TIMESTAMP DEFAULT NOW(),
-  updated_at TIMESTAMP DEFAULT NOW()
-);
-
--- Expenses table
-CREATE TABLE expenses (
-  id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
-  project_id UUID NOT NULL REFERENCES farming_projects(id) ON DELETE CASCADE,
-  category VARCHAR NOT NULL,
-  description TEXT,
-  amount NUMERIC NOT NULL,
-  date TIMESTAMP NOT NULL,
-  phase VARCHAR,
-  created_at TIMESTAMP DEFAULT NOW(),
-  updated_at TIMESTAMP DEFAULT NOW()
-);
-
--- Enable RLS
-ALTER TABLE farming_projects ENABLE ROW LEVEL SECURITY;
-ALTER TABLE expenses ENABLE ROW LEVEL SECURITY;
-
--- RLS Policies for farming_projects
-CREATE POLICY "Users can view own projects" ON farming_projects
-  FOR SELECT USING (auth.uid() = user_id);
-
-CREATE POLICY "Users can insert own projects" ON farming_projects
-  FOR INSERT WITH CHECK (auth.uid() = user_id);
-
-CREATE POLICY "Users can update own projects" ON farming_projects
-  FOR UPDATE USING (auth.uid() = user_id);
-
-CREATE POLICY "Users can delete own projects" ON farming_projects
-  FOR DELETE USING (auth.uid() = user_id);
-
--- RLS Policies for expenses
-CREATE POLICY "Users can view own expenses" ON expenses
-  FOR SELECT USING (
-    project_id IN (
-      SELECT id FROM farming_projects WHERE user_id = auth.uid()
-    )
-  );
-
-CREATE POLICY "Users can insert own expenses" ON expenses
-  FOR INSERT WITH CHECK (
-    project_id IN (
-      SELECT id FROM farming_projects WHERE user_id = auth.uid()
-    )
-  );
-
-CREATE POLICY "Users can update own expenses" ON expenses
-  FOR UPDATE USING (
-    project_id IN (
-      SELECT id FROM farming_projects WHERE user_id = auth.uid()
-    )
-  );
-
-CREATE POLICY "Users can delete own expenses" ON expenses
-  FOR DELETE USING (
-    project_id IN (
-      SELECT id FROM farming_projects WHERE user_id = auth.uid()
-    )
-  );
+```bash
+cd smart_sack_farming
+flutter pub get
+flutter run -d chrome
 ```
 
-## Step 3: Create Equipment Rentals Table
+---
 
-```sql
-CREATE TABLE equipment (
-  id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
-  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  name VARCHAR NOT NULL,
-  category VARCHAR NOT NULL,
-  description TEXT,
-  daily_rental_price NUMERIC NOT NULL,
-  availability BOOLEAN DEFAULT TRUE,
-  created_date TIMESTAMP DEFAULT NOW(),
-  created_at TIMESTAMP DEFAULT NOW(),
-  updated_at TIMESTAMP DEFAULT NOW()
-);
+## Database Schema Overview
 
-ALTER TABLE equipment ENABLE ROW LEVEL SECURITY;
+```
+profiles
+├── id (UUID, PK, references auth.users)
+├── email, full_name, role, phone, address
+└── created_at, updated_at
 
-CREATE POLICY "Anyone can view equipment" ON equipment
-  FOR SELECT USING (TRUE);
+farming_projects
+├── id (UUID, PK)
+├── user_id (FK → auth.users)
+├── crop_type, area, planting_date, harvest_date
+├── revenue, status
+└── created_date, created_at, updated_at
 
-CREATE POLICY "Users can insert own equipment" ON equipment
-  FOR INSERT WITH CHECK (auth.uid() = user_id);
+expenses
+├── id (UUID, PK)
+├── project_id (FK → farming_projects)
+├── user_id (FK → auth.users)
+├── category, description, amount, date, phase
+└── created_at, updated_at
 
-CREATE POLICY "Users can update own equipment" ON equipment
-  FOR UPDATE USING (auth.uid() = user_id);
+equipment
+├── id (UUID, PK)
+├── owner_id (FK → auth.users)
+├── name, description, category
+├── daily_rental_price, quantity, condition
+├── is_available, image_url, owner_name, owner_phone
+└── created_at, updated_at
 
-CREATE POLICY "Users can delete own equipment" ON equipment
-  FOR DELETE USING (auth.uid() = user_id);
+calamity_reports
+├── id (UUID, PK)
+├── user_id (FK → auth.users)
+├── type, severity, date, area_affected
+├── affected_crops, description, damage_estimate
+├── farmer_name, image_url, status
+└── created_at, updated_at
+
+production_reports
+├── id (UUID, PK)
+├── user_id (FK → auth.users)
+├── crop_type, area, planting_date, harvest_date
+├── yield, yield_unit, quality_rating, notes
+└── created_at, updated_at
 ```
 
-## Step 4: Create Reports Tables
+---
 
-```sql
-CREATE TABLE calamity_reports (
-  id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
-  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  crop_type VARCHAR NOT NULL,
-  calamity_type VARCHAR NOT NULL, -- flood, drought, pest, disease, etc
-  description TEXT,
-  affected_area NUMERIC,
-  latitude NUMERIC,
-  longitude NUMERIC,
-  damage_percentage NUMERIC,
- created_date TIMESTAMP DEFAULT NOW(),
-  created_at TIMESTAMP DEFAULT NOW(),
-  updated_at TIMESTAMP DEFAULT NOW()
-);
+## RLS Policy Summary
 
-CREATE TABLE production_reports (
-  id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
-  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  crop_type VARCHAR NOT NULL,
-  area_planted NUMERIC NOT NULL,
-  yield_quantity NUMERIC NOT NULL,
-  yield_unit VARCHAR DEFAULT 'kg',
-  quality_rating NUMERIC, -- 1-5
-  market_price NUMERIC,
-  production_date TIMESTAMP NOT NULL,
-  created_date TIMESTAMP DEFAULT NOW(),
-  created_at TIMESTAMP DEFAULT NOW(),
-  updated_at TIMESTAMP DEFAULT NOW()
-);
+| Table                | SELECT          | INSERT / UPDATE / DELETE |
+|----------------------|-----------------|--------------------------|
+| `profiles`           | Own only        | Own only                 |
+| `farming_projects`   | Own only        | Own only                 |
+| `expenses`           | Own only        | Own only                 |
+| `equipment`          | **All** (public)| Own only (by `owner_id`) |
+| `calamity_reports`   | Own only        | Own only                 |
+| `production_reports` | Own only        | Own only                 |
 
-ALTER TABLE calamity_reports ENABLE ROW LEVEL SECURITY;
-ALTER TABLE production_reports ENABLE ROW LEVEL SECURITY;
+---
 
--- RLS Policies
-CREATE POLICY "Users can view own calamity reports" ON calamity_reports
-  FOR SELECT USING (auth.uid() = user_id);
+## Troubleshooting
 
-CREATE POLICY "Users can insert calamity reports" ON calamity_reports
-  FOR INSERT WITH CHECK (auth.uid() = user_id);
+| Problem                | Solution                                              |
+|------------------------|-------------------------------------------------------|
+| "Auth error"           | Verify Anon Key in `supabase_config.dart`             |
+| "Connection refused"   | Verify `SUPABASE_URL` is correct                      |
+| "RLS policy error"     | Re-run the full `supabase_schema.sql`                 |
+| "Table not found"      | Ensure the SQL script ran without errors              |
+| "Permission denied"    | User may not be authenticated; check auth flow        |
+| Profile not created    | Check the `on_auth_user_created` trigger exists       |
 
-CREATE POLICY "Users can update own calamity reports" ON calamity_reports
-  FOR UPDATE USING (auth.uid() = user_id);
+---
 
-CREATE POLICY "Users can delete own calamity reports" ON calamity_reports
-  FOR DELETE USING (auth.uid() = user_id);
-
-CREATE POLICY "Users can view own production reports" ON production_reports
-  FOR SELECT USING (auth.uid() = user_id);
-
-CREATE POLICY "Users can insert production reports" ON production_reports
-  FOR INSERT WITH CHECK (auth.uid() = user_id);
-
-CREATE POLICY "Users can update own production reports" ON production_reports
-  FOR UPDATE USING (auth.uid() = user_id);
-
-CREATE POLICY "Users can delete own production reports" ON production_reports
-  FOR DELETE USING (auth.uid() = user_id);
-```
-
-## Quick Setup Order:
-1. Run Step 1 SQL ✅
-2. Run Step 2 SQL ✅
-3. Run Step 3 SQL ✅
-4. Run Step 4 SQL ✅
-
-**Then restart your Flutter app!**
-
-The app will now:
-- ✅ Store login accounts in Supabase Auth
-- ✅ Keep all data persistent in the database
-- ✅ Show data across sessions when logged in
-- ✅ Isolate user data with RLS policies
+For more help: [Supabase Docs](https://supabase.com/docs)
