@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../../theme/app_theme.dart';
 import '../auth/login_screen.dart';
+import '../features/profit_loss_calculator_screen.dart';
+import '../features/rentals_screen.dart';
 
 class FarmerDashboardScreen extends StatelessWidget {
   const FarmerDashboardScreen({super.key});
@@ -215,12 +217,24 @@ class FarmerDashboardScreen extends StatelessWidget {
   }
 
   void _navigateToFeature(BuildContext context, String featureName) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('$featureName feature coming soon!'),
-        duration: const Duration(seconds: 2),
-      ),
-    );
+    if (featureName == 'P&L Calculator') {
+      Navigator.of(context).push(
+        MaterialPageRoute(
+            builder: (_) => const ProfitLossCalculatorScreen()),
+      );
+    } else if (featureName == 'Rentals') {
+      Navigator.of(context).push(
+        MaterialPageRoute(
+            builder: (_) => const RentalsScreen()),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('$featureName feature coming soon!'),
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    }
   }
 
   void _logout(BuildContext context) {
