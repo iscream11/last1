@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../theme/app_theme.dart';
 import '../auth/login_screen.dart';
-import '../features/profit_loss_calculator_screen.dart';
+import '../features/progressive_profit_loss_screen.dart';
 import '../features/rentals_screen.dart';
 import '../features/reports_screen.dart';
 import '../features/weather_screen.dart';
@@ -222,7 +222,7 @@ class FarmerDashboardScreen extends StatelessWidget {
     if (featureName == 'P&L Calculator') {
       Navigator.of(context).push(
         MaterialPageRoute(
-            builder: (_) => const ProfitLossCalculatorScreen()),
+            builder: (_) => const ProgressiveProfitLossCalculatorScreen()),
       );
     } else if (featureName == 'Rentals') {
       Navigator.of(context).push(
