@@ -79,12 +79,7 @@ class FarmerDashboardScreen extends StatelessWidget {
                   title: 'Saturation Meter',
                   description: 'Measure and monitor soil moisture saturation levels',
                   buttonText: 'Check Saturation',
-                  onTap: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => const SaturationMeterScreen(),
-                    ),
-                  ),
+                  onTap: () => _navigateToFeature(context, 'Saturation Meter'),
                 ),
                 _buildFeatureCard(
                   icon: Icons.trending_up_rounded,
