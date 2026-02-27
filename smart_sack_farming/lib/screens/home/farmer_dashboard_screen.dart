@@ -220,7 +220,12 @@ class FarmerDashboardScreen extends StatelessWidget {
   }
 
   void _navigateToFeature(BuildContext context, String featureName) {
-    if (featureName == 'P&L Calculator') {
+    if (featureName == 'Saturation Meter') {
+      Navigator.of(context).push(
+        MaterialPageRoute(
+            builder: (_) => const SaturationMeterScreen()),
+      );
+    } else if (featureName == 'P&L Calculator') {
       Navigator.of(context).push(
         MaterialPageRoute(
             builder: (_) => const ProgressiveProfitLossCalculatorScreen()),
