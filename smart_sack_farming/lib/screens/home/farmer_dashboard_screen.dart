@@ -3,6 +3,8 @@ import '../../theme/app_theme.dart';
 import '../auth/login_screen.dart';
 import '../features/profit_loss_calculator_screen.dart';
 import '../features/rentals_screen.dart';
+import '../features/reports_screen.dart';
+import '../features/weather_screen.dart';
 
 class FarmerDashboardScreen extends StatelessWidget {
   const FarmerDashboardScreen({super.key});
@@ -226,6 +228,16 @@ class FarmerDashboardScreen extends StatelessWidget {
       Navigator.of(context).push(
         MaterialPageRoute(
             builder: (_) => const RentalsScreen()),
+      );
+    } else if (featureName == 'Reports') {
+      Navigator.of(context).push(
+        MaterialPageRoute(
+            builder: (_) => const ReportsScreen()),
+      );
+    } else if (featureName == 'Weather') {
+      Navigator.of(context).push(
+        MaterialPageRoute(
+            builder: (_) => const WeatherScreen()),
       );
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
