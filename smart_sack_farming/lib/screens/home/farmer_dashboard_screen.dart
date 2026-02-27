@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../theme/app_theme.dart';
 import '../auth/login_screen.dart';
 import '../features/progressive_profit_loss_screen.dart';
@@ -255,9 +256,24 @@ class FarmerDashboardScreen extends StatelessWidget {
     }
   }
 
-  void _logout(BuildContext context) {
-    Navigator.of(context).pushReplacement(
-      MaterialPageRoute(builder: (_) => const LoginScreen()),
-    );
+  void _logout(BuildContext context) async {
+    try {
+      // Sign out from Supabase
+      await Supabase.instance.client.auth.signOut();
+      
+      if (context.mounted) {
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (_) => const LoginScreen()),
+        );
+      }
+    } catch (e) {
+      print('Logout error: $e');
+      // Still navigate to login even if error
+      if (context.mounted) {
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (_) => const LoginScreen()),
+        );
+      }
+    }
   }
 }

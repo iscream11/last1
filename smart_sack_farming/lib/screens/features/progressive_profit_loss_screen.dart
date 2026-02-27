@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../models/expense_model.dart';
 import '../../theme/app_theme.dart';
 
@@ -17,9 +18,9 @@ class _ProgressiveProfitLossCalculatorScreenState
   
   // Active project
   FarmingProject? _activeProject;
-  
-  // Sample data
   List<FarmingProject> _allProjects = [];
+  String? _userId;
+  bool _isLoading = true;
 
   final List<String> _expenseCategories = [
     'Seeds',
@@ -47,7 +48,65 @@ class _ProgressiveProfitLossCalculatorScreenState
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
-    _initializeSampleProjects();
+    _loadProjectsFromSupabase();
+  }
+
+  Future<void> _loadProjectsFromSupabase() async {
+    try {
+      final user = Supabase.instance.client.auth.currentUser;
+      if (user != null) {
+        _userId = user.id;
+        
+        // Load projects from Supabase
+        final response = await Supabase.instance.client
+            .from('farming_projects')
+            .select()
+            .eq('user_id', _userId!)
+            .order('created_at', ascending: false);
+        
+        List<FarmingProject> projects = [];
+        for (var projectData in response) {
+          // Load expenses for this project
+          final expenses = await Supabase.instance.client
+              .from('expenses')
+              .select()
+              .eq('project_id', projectData['id'])
+              .order('date', ascending: false);
+          
+          projects.add(FarmingProject(
+            id: projectData['id'],
+            cropType: projectData['crop_type'],
+            area: (projectData['area'] as num).toDouble(),
+            plantingDate: DateTime.parse(projectData['planting_date']),
+            harvestDate: DateTime.parse(projectData['harvest_date']),
+            revenue: (projectData['revenue'] as num?)?.toDouble() ?? 0.0,
+            createdDate: DateTime.parse(projectData['created_date'] ?? projectData['created_at']),
+            status: projectData['status'] ?? 'active',
+            expenses: expenses.map((e) => Expense(
+              id: e['id'],
+              category: e['category'],
+              description: e['description'],
+              amount: (e['amount'] as num).toDouble(),
+              date: DateTime.parse(e['date']),
+              phase: e['phase'],
+            )).toList(),
+          ));
+        }
+        
+        setState(() {
+          _allProjects = projects;
+          _activeProject = projects.isNotEmpty ? projects.first : null;
+          _isLoading = false;
+        });
+      } else {
+        setState(() => _isLoading = false);
+        _initializeSampleProjects();
+      }
+    } catch (e) {
+      print('Error loading projects: $e');
+      setState(() => _isLoading = false);
+      _initializeSampleProjects();
+    }
   }
 
   void _initializeSampleProjects() {
@@ -139,20 +198,51 @@ class _ProgressiveProfitLossCalculatorScreenState
   void _addExpenseToActiveProject(Expense expense) {
     if (_activeProject == null) return;
     
-    setState(() {
-      _activeProject = _activeProject!.copyWith(
-        expenses: [..._activeProject!.expenses, expense],
+    if (_userId != null) {
+      // Save to Supabase
+      Supabase.instance.client
+          .from('expenses')
+          .insert({
+            'project_id': _activeProject!.id,
+            'category': expense.category,
+            'description': expense.description,
+            'amount': expense.amount,
+            'date': expense.date.toIso8601String(),
+            'phase': expense.phase,
+          })
+          .then((_) {
+            // Reload projects to show new expense
+            _loadProjectsFromSupabase();
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('✅ Expense saved to database'),
+                duration: Duration(seconds: 2),
+              ),
+            );
+          })
+          .catchError((e) {
+            print('Error saving expense to Supabase: $e');
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('❌ Error saving: ${e.toString()}'),
+                duration: const Duration(seconds: 2),
+              ),
+            );
+          });
+    } else {
+      // Fallback for no user
+      setState(() {
+        _activeProject = _activeProject!.copyWith(
+          expenses: [..._activeProject!.expenses, expense],
+        );
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('⚠️ Expense added locally (not logged in)'),
+          duration: Duration(seconds: 2),
+        ),
       );
-      // Update in all projects list
-      int index = _allProjects.indexWhere((p) => p.id == _activeProject!.id);
-      if (index != -1) {
-        _allProjects[index] = _activeProject!;
-      }
-    });
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Expense added successfully'), duration: Duration(seconds: 1)),
-    );
+    }
   }
 
   void _startNewProject() {
@@ -210,28 +300,65 @@ class _ProgressiveProfitLossCalculatorScreenState
             onPressed: () {
               if (formKey.currentState!.validate()) {
                 formKey.currentState!.save();
-                final newProject = FarmingProject(
-                  id: DateTime.now().millisecondsSinceEpoch.toString(),
-                  cropType: cropType ?? 'Rice',
-                  area: area ?? 0,
-                  plantingDate: plantingDate,
-                  harvestDate: harvestDate,
-                  revenue: revenue ?? 0,
-                  expenses: [],
-                  createdDate: DateTime.now(),
-                  status: 'active',
-                );
-                setState(() {
-                  _activeProject = newProject;
-                  _allProjects.insert(0, newProject);
-                });
-                Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Project created successfully'),
-                    duration: Duration(seconds: 1),
-                  ),
-                );
+                
+                if (_userId != null) {
+                  // Save to Supabase
+                  Supabase.instance.client
+                      .from('farming_projects')
+                      .insert({
+                        'user_id': _userId,
+                        'crop_type': cropType ?? 'Rice',
+                        'area': area ?? 0,
+                        'planting_date': plantingDate.toIso8601String(),
+                        'harvest_date': harvestDate.toIso8601String(),
+                        'revenue': revenue ?? 0,
+                        'status': 'active',
+                        'created_date': DateTime.now().toIso8601String(),
+                      })
+                      .then((_) {
+                        Navigator.pop(context);
+                        _loadProjectsFromSupabase();
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('✅ Project created and saved'),
+                            duration: Duration(seconds: 1),
+                          ),
+                        );
+                      })
+                      .catchError((e) {
+                        print('Error creating project: $e');
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('❌ Error: ${e.toString()}'),
+                            duration: const Duration(seconds: 2),
+                          ),
+                        );
+                      });
+                } else {
+                  // Fallback: local only
+                  final newProject = FarmingProject(
+                    id: DateTime.now().millisecondsSinceEpoch.toString(),
+                    cropType: cropType ?? 'Rice',
+                    area: area ?? 0,
+                    plantingDate: plantingDate,
+                    harvestDate: harvestDate,
+                    revenue: revenue ?? 0,
+                    expenses: [],
+                    createdDate: DateTime.now(),
+                    status: 'active',
+                  );
+                  setState(() {
+                    _activeProject = newProject;
+                    _allProjects.insert(0, newProject);
+                  });
+                  Navigator.pop(context);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('⚠️ Project created locally (not logged in)'),
+                      duration: Duration(seconds: 1),
+                    ),
+                  );
+                }
               }
             },
             child: const Text('Create Project'),

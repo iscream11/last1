@@ -43,6 +43,32 @@ class Expense {
       phase: phase ?? this.phase,
     );
   }
+
+  factory Expense.fromJson(Map<String, dynamic> json) {
+    return Expense(
+      id: json['id'] ?? '',
+      category: json['category'] ?? 'Other',
+      description: json['description'] ?? '',
+      amount: (json['amount'] is int)
+          ? (json['amount'] as int).toDouble()
+          : json['amount'] ?? 0.0,
+      date: json['date'] is String
+          ? DateTime.parse(json['date'])
+          : json['date'] ?? DateTime.now(),
+      phase: json['phase'] ?? 'planting',
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'category': category,
+      'description': description,
+      'amount': amount,
+      'date': date.toIso8601String(),
+      'phase': phase,
+    };
+  }
 }
 
 class FarmingProject {
@@ -110,6 +136,48 @@ class FarmingProject {
       createdDate: createdDate ?? this.createdDate,
       status: status ?? this.status,
     );
+  }
+
+  factory FarmingProject.fromJson(Map<String, dynamic> json) {
+    return FarmingProject(
+      id: json['id'] ?? '',
+      cropType: json['crop_type'] ?? 'Rice',
+      area: (json['area'] is int)
+          ? (json['area'] as int).toDouble()
+          : json['area'] ?? 0.0,
+      plantingDate: json['planting_date'] is String
+          ? DateTime.parse(json['planting_date'])
+          : json['planting_date'] ?? DateTime.now(),
+      harvestDate: json['harvest_date'] is String
+          ? DateTime.parse(json['harvest_date'])
+          : json['harvest_date'] ?? DateTime.now(),
+      revenue: (json['revenue'] is int)
+          ? (json['revenue'] as int).toDouble()
+          : json['revenue'] ?? 0.0,
+      expenses: json['expenses'] is List
+          ? (json['expenses'] as List)
+              .map((e) => Expense.fromJson(e as Map<String, dynamic>))
+              .toList()
+          : [],
+      createdDate: json['created_date'] is String
+          ? DateTime.parse(json['created_date'])
+          : json['created_date'] ?? DateTime.now(),
+      status: json['status'] ?? 'active',
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'crop_type': cropType,
+      'area': area,
+      'planting_date': plantingDate.toIso8601String(),
+      'harvest_date': harvestDate.toIso8601String(),
+      'revenue': revenue,
+      'expenses': expenses.map((e) => e.toJson()).toList(),
+      'created_date': createdDate.toIso8601String(),
+      'status': status,
+    };
   }
 }
 
