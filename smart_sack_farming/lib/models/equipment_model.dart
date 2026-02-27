@@ -73,42 +73,4 @@ class Equipment {
       quantity: quantity ?? this.quantity,
     );
   }
-
-  factory Equipment.fromJson(Map<String, dynamic> json) {
-    return Equipment(
-      id: json['id'] ?? '',
-      name: json['name'] ?? '',
-      description: json['description'] ?? '',
-      category: json['category'] ?? 'Equipment',
-      dailyRentalPrice: (json['daily_rental_price'] is int)
-          ? (json['daily_rental_price'] as int).toDouble()
-          : json['daily_rental_price'] ?? 0.0,
-      ownerId: json['owner_id'] ?? '',
-      ownerName: json['owner_name'] ?? '',
-      ownerPhone: json['owner_phone'] ?? '',
-      dateAdded: json['created_at'] is String
-          ? DateTime.parse(json['created_at'])
-          : json['dateAdded'] ?? DateTime.now(),
-      isAvailable: json['is_available'] ?? true,
-      imageUrl: json['image_url'] ?? '',
-      quantity: json['quantity'] ?? 1,
-    );
-  }
-
-  Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'name': name,
-      'description': description,
-      'category': category,
-      'daily_rental_price': dailyRentalPrice,
-      'owner_id': ownerId,
-      'owner_name': ownerName,
-      'owner_phone': ownerPhone,
-      'created_at': dateAdded.toIso8601String(),
-      'is_available': isAvailable,
-      'image_url': imageUrl,
-      'quantity': quantity,
-    };
-  }
 }

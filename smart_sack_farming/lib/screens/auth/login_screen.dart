@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../theme/app_theme.dart';
 import '../home/farmer_dashboard_screen.dart';
 import '../home/admin_home_screen.dart';
@@ -63,64 +62,25 @@ class _LoginScreenState extends State<LoginScreen>
 
     setState(() => _isLoading = true);
 
-    try {
-      // Sign in with Supabase
-      final response = await Supabase.instance.client.auth.signInWithPassword(
-        email: _emailController.text.trim(),
-        password: _passwordController.text,
-      );
+    // Simulate network call
+    await Future.delayed(const Duration(milliseconds: 1500));
 
-      if (!mounted) return;
+    if (!mounted) return;
+    setState(() => _isLoading = false);
 
-      if (response.user != null) {
-        // Create user profile if doesn't exist
-        try {
-          await Supabase.instance.client.from('users').insert({
-            'id': response.user!.id,
-            'email': _emailController.text.trim(),
-            'role': _selectedRole == UserRole.farmer ? 'farmer' : 'admin',
-            'full_name': _emailController.text.trim().split('@')[0],
-          });
-        } catch (e) {
-          // Profile might already exist, that's okay
-          print('Profile exists or error: $e');
-        }
+    final destination = _selectedRole == UserRole.farmer
+        ? const FarmerDashboardScreen()
+        : const AdminHomeScreen();
 
-        setState(() => _isLoading = false);
-
-        final destination = _selectedRole == UserRole.farmer
-            ? const FarmerDashboardScreen()
-            : const AdminHomeScreen();
-
-        Navigator.of(context).pushReplacement(
-          PageRouteBuilder(
-            pageBuilder: (context, animation, secondaryAnimation) => destination,
-            transitionsBuilder: (context, anim, secondaryAnimation, child) {
-              return FadeTransition(opacity: anim, child: child);
-            },
-            transitionDuration: const Duration(milliseconds: 400),
-          ),
-        );
-      }
-    } on AuthException catch (e) {
-      setState(() => _isLoading = false);
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Login failed: ${e.message}'),
-          backgroundColor: Colors.red,
-        ),
-      );
-    } catch (e) {
-      setState(() => _isLoading = false);
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error: ${e.toString()}'),
-          backgroundColor: Colors.red,
-        ),
-      );
-    }
+    Navigator.of(context).pushReplacement(
+      PageRouteBuilder(
+        pageBuilder: (context, animation, secondaryAnimation) => destination,
+        transitionsBuilder: (context, anim, secondaryAnimation, child) {
+          return FadeTransition(opacity: anim, child: child);
+        },
+        transitionDuration: const Duration(milliseconds: 400),
+      ),
+    );
   }
 
   @override
@@ -502,7 +462,7 @@ class _LoginScreenState extends State<LoginScreen>
               style: TextStyle(color: AppTheme.textMedium, fontSize: 14),
             ),
             TextButton(
-              onPressed: _showSignUpDialog,
+              onPressed: () {},
               style: TextButton.styleFrom(
                 padding: EdgeInsets.zero,
                 minimumSize: Size.zero,
@@ -521,126 +481,6 @@ class _LoginScreenState extends State<LoginScreen>
           ),
         ),
       ],
-    );
-  }
-
-  void _showSignUpDialog() {
-    final signUpFormKey = GlobalKey<FormState>();
-    final signUpEmailController = TextEditingController();
-    final signUpPasswordController = TextEditingController();
-    final signUpNameController = TextEditingController();
-    bool isSigningUp = false;
-
-    showDialog(
-      context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setState) => AlertDialog(
-          title: const Text('Create Account'),
-          content: SingleChildScrollView(
-            child: Form(
-              key: signUpFormKey,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  TextFormField(
-                    controller: signUpNameController,
-                    decoration: const InputDecoration(labelText: 'Full Name'),
-                    validator: (v) => v?.isEmpty ?? true ? 'Required' : null,
-                  ),
-                  const SizedBox(height: 12),
-                  TextFormField(
-                    controller: signUpEmailController,
-                    decoration: const InputDecoration(labelText: 'Email'),
-                    keyboardType: TextInputType.emailAddress,
-                    validator: (v) {
-                      if (v?.isEmpty ?? true) return 'Required';
-                      if (!v!.contains('@')) return 'Invalid email';
-                      return null;
-                    },
-                  ),
-                  const SizedBox(height: 12),
-                  TextFormField(
-                    controller: signUpPasswordController,
-                    decoration: const InputDecoration(labelText: 'Password (min 6 chars)'),
-                    obscureText: true,
-                    validator: (v) {
-                      if (v?.isEmpty ?? true) return 'Required';
-                      if (v!.length < 6) return 'Min 6 characters';
-                      return null;
-                    },
-                  ),
-                ],
-              ),
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel'),
-            ),
-            ElevatedButton(
-              onPressed: isSigningUp
-                  ? null
-                  : () async {
-                      if (!signUpFormKey.currentState!.validate()) return;
-
-                      setState(() => isSigningUp = true);
-
-                      try {
-                        final response = await Supabase.instance.client.auth
-                            .signUp(
-                          email: signUpEmailController.text.trim(),
-                          password: signUpPasswordController.text,
-                        );
-
-                        if (response.user != null) {
-                          // Create user profile
-                          await Supabase.instance.client.from('users').insert({
-                            'id': response.user!.id,
-                            'email': signUpEmailController.text.trim(),
-                            'full_name': signUpNameController.text,
-                            'role': 'farmer',
-                          });
-
-                          if (mounted) {
-                            Navigator.pop(context);
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('✅ Account created! Please log in.'),
-                                backgroundColor: Colors.green,
-                              ),
-                            );
-                            // Clear fields for login
-                            _emailController.text = signUpEmailController.text;
-                            _passwordController.text = signUpPasswordController.text;
-                          }
-                        }
-                      } on AuthException catch (e) {
-                        if (mounted) {
-                          ScaffoldMessenger.of(this.context).showSnackBar(
-                            SnackBar(
-                              content: Text('Error: ${e.message}'),
-                              backgroundColor: Colors.red,
-                            ),
-                          );
-                        }
-                      } finally {
-                        setState(() => isSigningUp = false);
-                      }
-                    },
-              child: isSigningUp
-                  ? const SizedBox(
-                      height: 20,
-                      width: 20,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                      ),
-                    )
-                  : const Text('Sign Up'),
-            ),
-          ],
-        ),
-      ),
     );
   }
 }
