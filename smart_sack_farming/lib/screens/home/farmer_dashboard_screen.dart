@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../theme/app_theme.dart';
 import '../auth/login_screen.dart';
+import '../saturation/saturation_meter_screen.dart';
 
 class FarmerDashboardScreen extends StatelessWidget {
   const FarmerDashboardScreen({super.key});
@@ -74,7 +75,12 @@ class FarmerDashboardScreen extends StatelessWidget {
                   title: 'Saturation Meter',
                   description: 'Measure and monitor soil moisture saturation levels',
                   buttonText: 'Check Saturation',
-                  onTap: () => _navigateToFeature(context, 'Saturation Meter'),
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const SaturationMeterScreen(),
+                    ),
+                  ),
                 ),
                 _buildFeatureCard(
                   icon: Icons.trending_up_rounded,
