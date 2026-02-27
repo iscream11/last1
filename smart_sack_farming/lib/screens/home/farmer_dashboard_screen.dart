@@ -257,23 +257,10 @@ class FarmerDashboardScreen extends StatelessWidget {
   }
 
   void _logout(BuildContext context) async {
-    try {
-      // Sign out from Supabase
-      await Supabase.instance.client.auth.signOut();
-      
-      if (context.mounted) {
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (_) => const LoginScreen()),
-        );
-      }
-    } catch (e) {
-      print('Logout error: $e');
-      // Still navigate to login even if error
-      if (context.mounted) {
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (_) => const LoginScreen()),
-        );
-      }
-    }
+    await Supabase.instance.client.auth.signOut();
+    if (!context.mounted) return;
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(builder: (_) => const LoginScreen()),
+    );
   }
 }

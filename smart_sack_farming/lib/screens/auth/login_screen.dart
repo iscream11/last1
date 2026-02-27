@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../theme/app_theme.dart';
 import '../home/farmer_dashboard_screen.dart';
 import '../home/admin_home_screen.dart';
@@ -62,25 +63,62 @@ class _LoginScreenState extends State<LoginScreen>
 
     setState(() => _isLoading = true);
 
-    // Simulate network call
-    await Future.delayed(const Duration(milliseconds: 1500));
+    try {
+      final supabase = Supabase.instance.client;
+      final response = await supabase.auth.signInWithPassword(
+        email: _emailController.text.trim(),
+        password: _passwordController.text,
+      );
 
-    if (!mounted) return;
-    setState(() => _isLoading = false);
+      if (!mounted) return;
 
-    final destination = _selectedRole == UserRole.farmer
-        ? const FarmerDashboardScreen()
-        : const AdminHomeScreen();
+      if (response.user != null) {
+        // Ensure user profile exists in users table
+        try {
+          await supabase.from('users').upsert({
+            'id': response.user!.id,
+            'email': _emailController.text.trim(),
+            'role': _selectedRole == UserRole.farmer ? 'farmer' : 'admin',
+            'full_name': _emailController.text.trim().split('@')[0],
+          });
+        } catch (_) {}
 
-    Navigator.of(context).pushReplacement(
-      PageRouteBuilder(
-        pageBuilder: (context, animation, secondaryAnimation) => destination,
-        transitionsBuilder: (context, anim, secondaryAnimation, child) {
-          return FadeTransition(opacity: anim, child: child);
-        },
-        transitionDuration: const Duration(milliseconds: 400),
-      ),
-    );
+        setState(() => _isLoading = false);
+
+        final destination = _selectedRole == UserRole.farmer
+            ? const FarmerDashboardScreen()
+            : const AdminHomeScreen();
+
+        Navigator.of(context).pushReplacement(
+          PageRouteBuilder(
+            pageBuilder: (context, animation, secondaryAnimation) =>
+                destination,
+            transitionsBuilder: (context, anim, secondaryAnimation, child) {
+              return FadeTransition(opacity: anim, child: child);
+            },
+            transitionDuration: const Duration(milliseconds: 400),
+          ),
+        );
+      }
+    } on AuthException catch (e) {
+      setState(() => _isLoading = false);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Login failed: ${e.message}'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } catch (e) {
+      setState(() => _isLoading = false);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error: ${e.toString()}'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 
   @override
@@ -451,6 +489,113 @@ class _LoginScreenState extends State<LoginScreen>
     );
   }
 
+  Future<void> _handleSignUp() async {
+    final emailCtrl = TextEditingController();
+    final passCtrl = TextEditingController();
+    final nameCtrl = TextEditingController();
+    final formKey = GlobalKey<FormState>();
+
+    await showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Create Account'),
+        content: Form(
+          key: formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextFormField(
+                controller: nameCtrl,
+                decoration: const InputDecoration(labelText: 'Full Name'),
+                validator: (v) =>
+                    v == null || v.isEmpty ? 'Enter your name' : null,
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: emailCtrl,
+                decoration: const InputDecoration(labelText: 'Email'),
+                keyboardType: TextInputType.emailAddress,
+                validator: (v) {
+                  if (v == null || v.isEmpty) return 'Enter email';
+                  if (!v.contains('@')) return 'Invalid email';
+                  return null;
+                },
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: passCtrl,
+                decoration: const InputDecoration(labelText: 'Password'),
+                obscureText: true,
+                validator: (v) {
+                  if (v == null || v.isEmpty) return 'Enter password';
+                  if (v.length < 6) return 'Min 6 characters';
+                  return null;
+                },
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              if (!formKey.currentState!.validate()) return;
+              try {
+                final supabase = Supabase.instance.client;
+                final res = await supabase.auth.signUp(
+                  email: emailCtrl.text.trim(),
+                  password: passCtrl.text,
+                );
+                if (res.user != null) {
+                  // Create user profile
+                  await supabase.from('users').upsert({
+                    'id': res.user!.id,
+                    'email': emailCtrl.text.trim(),
+                    'full_name': nameCtrl.text.trim(),
+                    'role':
+                        _selectedRole == UserRole.farmer ? 'farmer' : 'admin',
+                  });
+                  if (ctx.mounted) Navigator.pop(ctx);
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text(
+                            'Account created! You can now sign in.'),
+                        backgroundColor: Colors.green,
+                      ),
+                    );
+                  }
+                }
+              } on AuthException catch (e) {
+                if (ctx.mounted) {
+                  ScaffoldMessenger.of(ctx).showSnackBar(
+                    SnackBar(
+                      content: Text('Sign up failed: ${e.message}'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                }
+              } catch (e) {
+                if (ctx.mounted) {
+                  ScaffoldMessenger.of(ctx).showSnackBar(
+                    SnackBar(
+                      content: Text('Error: $e'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                }
+              }
+            },
+            child: const Text('Sign Up'),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildFooter() {
     return Column(
       children: [
@@ -462,7 +607,7 @@ class _LoginScreenState extends State<LoginScreen>
               style: TextStyle(color: AppTheme.textMedium, fontSize: 14),
             ),
             TextButton(
-              onPressed: () {},
+              onPressed: _handleSignUp,
               style: TextButton.styleFrom(
                 padding: EdgeInsets.zero,
                 minimumSize: Size.zero,
